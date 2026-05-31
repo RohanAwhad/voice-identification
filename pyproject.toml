@@ -1,0 +1,29 @@
+[project]
+name = "nova"
+version = "0.1.0"
+description = "Sassy voice assistant with speaker identification"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "torch>=2.5",
+    "torchaudio>=2.5",
+    "soundfile>=0.13",
+    "openai>=1.0",
+    "faster-whisper>=1.1",
+    "openwakeword>=0.5",
+    "silero-vad>=6.2",
+    "pyaudio>=0.2",
+    "wespeaker",
+    "kokoro-tts",
+]
+
+[tool.uv.sources]
+wespeaker = { git = "https://github.com/wenet-e2e/wespeaker.git" }
+kokoro-tts = { git = "https://github.com/RohanAwhad/kokoro-tts.git" }
+
+[project.scripts]
+nova = "nova.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
