@@ -87,6 +87,20 @@ class UtteranceCapture:
                     self.vad.reset_states()
                     return utterance
 
+    def drain(self) -> np.ndarray | None:
+        """Return partial utterance captured so far. None if no speech started."""
+        if self.speech_start_offset is None:
+            return None
+        utterance = np.concatenate(
+            [
+                chunk
+                for off, chunk in self.ring
+                if self.speech_start_offset <= off < self.sample_offset
+            ]
+        )
+        self.vad.reset_states()
+        return utterance
+
     def close(self) -> None:
         self.stop()
         self.pya.terminate()

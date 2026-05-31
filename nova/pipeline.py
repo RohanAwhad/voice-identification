@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from nova.audio import UtteranceCapture
@@ -56,12 +57,23 @@ class NovaPipeline:
             self.wakeword.stop()
 
             self.capture.start()
-            print("Listening...", flush=True)
-            utterance = self.capture.capture()
+            print("Listening... (Ctrl+C when done)", flush=True)
+            try:
+                utterance = self.capture.capture()
+            except KeyboardInterrupt:
+                print("", flush=True)
+                utterance = self.capture.drain()
+                if utterance is None or len(utterance) < 16000 * 0.5:
+                    print("No speech captured.", flush=True)
+                    self.capture.stop()
+                    self.wakeword.start()
+                    print("\nListening for wake word 'hey mycroft'...\n", flush=True)
+                    continue
             self.capture.stop()
             print(f"Captured {len(utterance) / 16000:.1f}s of speech.", flush=True)
 
             with ThreadPoolExecutor(max_workers=2) as executor:
+                t0 = time.time()
                 speaker_future = executor.submit(
                     self.verifier.verify, utterance, self.voiceprint
                 )
@@ -69,15 +81,19 @@ class NovaPipeline:
 
                 (identity, confidence) = speaker_future.result()
                 transcript = transcript_future.result()
+                t1 = time.time()
 
-            print(f"Speaker: {identity.value} ({confidence:.3f})", flush=True)
+            print(f"Speaker: {identity.value} ({confidence:.3f}) [{t1 - t0:.1f}s]", flush=True)
             print(f'Transcript: "{transcript}"', flush=True)
 
             speaker_label = identity.value
             response = self.llm.ask(transcript, speaker_label)
+            t2 = time.time()
 
-            print(f"Nova: {response}", flush=True)
+            print(f"Nova: {response} [{t2 - t1:.1f}s]", flush=True)
             self.tts.speak(response)
+            t3 = time.time()
+            print(f"TTS+playback [{t3 - t2:.1f}s]", flush=True)
 
             self.wakeword.start()
             print("\nListening for wake word 'hey mycroft'...\n", flush=True)

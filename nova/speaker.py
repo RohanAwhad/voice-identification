@@ -39,17 +39,10 @@ class SpeakerVerifier:
             self.model.set_vad(True)
 
     def enroll(self, samples: list[np.ndarray]) -> np.ndarray:
-        import tempfile
-        import soundfile as sf
-        import os
-
         embeddings: list[np.ndarray] = []
-        for i, audio in enumerate(samples):
-            fd, path = tempfile.mkstemp(suffix=f"_enroll_{i}.wav")
-            os.close(fd)
-            sf.write(path, audio, 16000)
-            emb = self.model.extract_embedding(path)
-            os.unlink(path)
+        for audio in samples:
+            pcm = torch.from_numpy(audio.astype(np.float32) / 32768.0).unsqueeze(0)
+            emb = self.model.extract_embedding_from_pcm(pcm, 16000)
             embeddings.append(_to_numpy(emb))
 
         averaged = np.mean(embeddings, axis=0)
@@ -62,15 +55,11 @@ class SpeakerVerifier:
         voiceprint: np.ndarray,
         threshold: float = DEFAULT_THRESHOLD,
     ) -> tuple[SpeakerIdentity, float]:
-        import tempfile
-        import soundfile as sf
-        import os
+        pcm = torch.from_numpy(audio.astype(np.float32) / 32768.0).unsqueeze(0)
+        emb_raw = self.model.extract_embedding_from_pcm(pcm, 16000)
 
-        fd, path = tempfile.mkstemp(suffix="_verify.wav")
-        os.close(fd)
-        sf.write(path, audio, 16000)
-        emb_raw = self.model.extract_embedding(path)
-        os.unlink(path)
+        if emb_raw is None:
+            return SpeakerIdentity.UNKNOWN, 0.0
 
         emb = _to_numpy(emb_raw).flatten().astype(np.float32)
         voiceprint = voiceprint.flatten().astype(np.float32)
