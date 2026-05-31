@@ -5,7 +5,7 @@ from faster_whisper import WhisperModel
 
 
 class Transcriber:
-    def __init__(self, model_size: str = "turbo") -> None:
+    def __init__(self, model_size: str = "tiny") -> None:
         self.model = WhisperModel(
             model_size,
             device="cpu",

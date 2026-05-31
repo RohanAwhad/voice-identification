@@ -33,7 +33,7 @@ def _to_numpy(emb: torch.Tensor | np.ndarray) -> np.ndarray:
 
 
 class SpeakerVerifier:
-    def __init__(self, use_vad: bool = True) -> None:
+    def __init__(self, use_vad: bool = False) -> None:
         self.model = wespeaker.load_model("english")
         if use_vad:
             self.model.set_vad(True)

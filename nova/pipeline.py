@@ -16,6 +16,7 @@ class NovaPipeline:
     def __init__(self) -> None:
         self.voiceprint_path = default_voiceprint_path()
         self.voiceprint = load_voiceprint(self.voiceprint_path)
+        self.history: list[dict[str, str]] = []
 
         print("Loading models...", flush=True)
 
@@ -25,7 +26,7 @@ class NovaPipeline:
         self.verifier = SpeakerVerifier()
         print("done")
 
-        print("  STT (faster-whisper turbo)...", end=" ", flush=True)
+        print("  STT (faster-whisper tiny)...", end=" ", flush=True)
         self.transcriber = Transcriber()
         print("done")
 
@@ -80,20 +81,23 @@ class NovaPipeline:
                 transcript_future = executor.submit(self.transcriber.transcribe, utterance)
 
                 (identity, confidence) = speaker_future.result()
+                t_speaker = time.time()
                 transcript = transcript_future.result()
-                t1 = time.time()
+                t_stt = time.time()
 
-            print(f"Speaker: {identity.value} ({confidence:.3f}) [{t1 - t0:.1f}s]", flush=True)
+            print(f"Speaker: {identity.value} ({confidence:.3f}) [spk:{t_speaker - t0:.1f}s stt:{t_stt - t_speaker:.1f}s]", flush=True)
             print(f'Transcript: "{transcript}"', flush=True)
 
             speaker_label = identity.value
-            response = self.llm.ask(transcript, speaker_label)
-            t2 = time.time()
+            t_llm = time.time()
+            response = self.llm.ask(transcript, speaker_label, history=self.history)
+            t_llm_done = time.time()
 
-            print(f"Nova: {response} [{t2 - t1:.1f}s]", flush=True)
+            print(f"Nova: {response} [llm:{t_llm_done - t_llm:.1f}s]", flush=True)
+            self.history.append({"user": transcript, "assistant": response})
             self.tts.speak(response)
-            t3 = time.time()
-            print(f"TTS+playback [{t3 - t2:.1f}s]", flush=True)
+            t_tts = time.time()
+            print(f"TTS+playback [{t_tts - t_llm_done:.1f}s]", flush=True)
 
             self.wakeword.start()
             print("\nListening for wake word 'hey mycroft'...\n", flush=True)
