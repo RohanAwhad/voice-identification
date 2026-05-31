@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from nova.audio import UtteranceCapture
 from nova.llm import NovaLLM
-from nova.speaker import SpeakerIdentity, SpeakerVerifier, load_voiceprint, default_voiceprint_path
+from nova.speaker import load_voiceprint, default_voiceprint_path
 from nova.stt import Transcriber
 from nova.tts import NovaTTS
 from nova.wakeword import WakeWordDetector
@@ -15,25 +16,50 @@ class NovaPipeline:
         self.voiceprint_path = default_voiceprint_path()
         self.voiceprint = load_voiceprint(self.voiceprint_path)
 
-        self.verifier = SpeakerVerifier()
-        self.transcriber = Transcriber()
-        self.llm = NovaLLM()
-        self.tts = NovaTTS()
+        print("Loading models...", flush=True)
 
+        print("  SpeakerID (WeSpeaker)...", end=" ", flush=True)
+        from nova.speaker import SpeakerVerifier
+
+        self.verifier = SpeakerVerifier()
+        print("done")
+
+        print("  STT (faster-whisper turbo)...", end=" ", flush=True)
+        self.transcriber = Transcriber()
+        print("done")
+
+        print("  LLM (DeepSeek v4-flash)...", end=" ", flush=True)
+        self.llm = NovaLLM()
+        print("done")
+
+        print("  TTS (Kokoro)...", end=" ", flush=True)
+        self.tts = NovaTTS()
+        print("done")
+
+        print("  Wake word (openWakeWord)...", end=" ", flush=True)
         self.wakeword = WakeWordDetector()
+        print("done")
+
+        print("  VAD (Silero)...", end=" ", flush=True)
         self.capture = UtteranceCapture()
+        print("done")
+
+        print("Ready.", flush=True)
 
     def run(self) -> None:
         self.wakeword.start()
+        print("Listening for wake word 'hey mycroft'...\n", flush=True)
 
         while True:
             self.wakeword.wait_for_wake()
-
+            print("Wake word detected!", flush=True)
             self.wakeword.stop()
 
             self.capture.start()
+            print("Listening...", flush=True)
             utterance = self.capture.capture()
             self.capture.stop()
+            print(f"Captured {len(utterance) / 16000:.1f}s of speech.", flush=True)
 
             with ThreadPoolExecutor(max_workers=2) as executor:
                 speaker_future = executor.submit(
@@ -44,9 +70,14 @@ class NovaPipeline:
                 (identity, confidence) = speaker_future.result()
                 transcript = transcript_future.result()
 
+            print(f"Speaker: {identity.value} ({confidence:.3f})", flush=True)
+            print(f'Transcript: "{transcript}"', flush=True)
+
             speaker_label = identity.value
             response = self.llm.ask(transcript, speaker_label)
 
+            print(f"Nova: {response}", flush=True)
             self.tts.speak(response)
 
             self.wakeword.start()
+            print("\nListening for wake word 'hey mycroft'...\n", flush=True)

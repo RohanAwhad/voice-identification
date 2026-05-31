@@ -19,7 +19,7 @@ class WakeWordDetector:
         self.model = Model(
             wakeword_models=[WAKE_MODEL],
             vad_threshold=0.0,
-            inference_framework="tflite",
+            inference_framework="onnx",
             enable_speex_noise_suppression=False,
         )
 
