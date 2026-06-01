@@ -8,7 +8,7 @@ from nova.audio import UtteranceCapture
 from nova.llm import NovaLLM
 from nova.speaker import load_voiceprint, default_voiceprint_path
 from nova.stt import Transcriber
-from nova.tts import NovaTTS
+from nova.tts import speak
 from nova.wakeword import WakeWordDetector
 
 
@@ -34,8 +34,7 @@ class NovaPipeline:
         self.llm = NovaLLM()
         print("done")
 
-        print("  TTS (Kokoro)...", end=" ", flush=True)
-        self.tts = NovaTTS()
+        print("  TTS (Kokoro Rust)...", end=" ", flush=True)
         print("done")
 
         print("  Wake word (openWakeWord)...", end=" ", flush=True)
@@ -95,7 +94,7 @@ class NovaPipeline:
 
             print(f"Nova: {response} [llm:{t_llm_done - t_llm:.1f}s]", flush=True)
             self.history.append({"user": transcript, "assistant": response})
-            self.tts.speak(response)
+            speak(response)
             t_tts = time.time()
             print(f"TTS+playback [{t_tts - t_llm_done:.1f}s]", flush=True)
 
